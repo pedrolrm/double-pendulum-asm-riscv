@@ -211,26 +211,27 @@ rk4:
 	la t0, omega2
 	flw fs3, 0(t0)      # fs3 = omega2 original
 	
+	# Calculando k1
 	
-	fmv.s fa0, fs0
-	fmv.s fa1, fs1
-	fmv.s fa2, fs2
-	fmv.s fa3, fs3
+	fmv.s fa0, fs0		# Coloca theta1 no fa0
+	fmv.s fa1, fs1		# Coloca theta2 no fa1
+	fmv.s fa2, fs2		# Coloca omega1 no fa2
+	fmv.s fa3, fs3		# Coloca omega2 no fa3
 	
-	jal calcular_aceleracoes
+	jal calcular_aceleracoes	# Aceleracoes 1 e 2 salvas em fa0 e fa1
 	
-	fsw fs2, 0(sp)
-	fsw fs3, 4(sp)
-	fsw fa0, 8(sp)
-	fsw fa1, 12(sp)
+	fsw fs2, 0(sp)		# k1 de theta1 salvo na stack
+	fsw fs3, 4(sp)		# k1 de theta2 salvo na stack
+	fsw fa0, 8(sp)		# k1 de omega1 salvo na stack
+	fsw fa1, 12(sp)		# k1 de omega2 salvo na stack
 	
 	la t0, dt
-	flw ft1, 0(t0)
+	flw ft1, 0(t0)		# Coloca o valor de dt no ft1
 	
 	la t0, DOIS
-	flw ft2, 0(t0)
+	flw ft2, 0(t0)		# Coloca a constante 2.0 no ft2
 	
-	fdiv.s ft1, ft1, ft2 # dt/2
+	fdiv.s ft1, ft1, ft2 	# dt/2 salvo em ft1
 	
 	# Calculando k2
 	

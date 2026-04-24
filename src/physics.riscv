@@ -1,0 +1,218 @@
+.data
+	# Constantes para o Rungee-Kuta
+	dois:   .float 2.0
+	seis:   .float 6.0
+	meio:   .float 0.5
+	g: 	.float 9.81
+
+
+.text
+
+
+
+calcular_aceleracoes:
+	addi sp, sp, -48 # Libera 48 Bytes de armazenamento na pilha
+	
+	# Esse bloco salva todo o conteudo dos registradores em uma pilha antes de rodar as funcoes
+	sw ra, 44(sp)
+	fsw fs0, 40(sp)
+	fsw fs1, 36(sp)     
+	fsw fs2, 32(sp)
+	fsw fs3, 28(sp)
+	fsw fs4, 24(sp)
+	fsw fs5, 20(sp)
+	fsw fs6, 16(sp)
+	fsw fs7, 12(sp)
+	
+	
+	fmv.s fs0, fa0      # Coloca theta1 no fs0
+	fmv.s fs1, fa1      # Coloca theta2 no fs1
+	fmv.s fs2, fa2      # Coloca omega1 no fs2
+	fmv.s fs3, fa3      # Coloca omega2 no fs3
+	
+	
+	la t0, m1           
+	flw fs4, 0(t0)      # Coloca o valor de m1 no fs4
+	
+	la t0, m2
+	flw fs5, 0(t0)      # Coloca o valor de m2 no fs5
+	
+	la t0, L1
+	flw fs6, 0(t0)      # Coloca o valor de L1 no fs6
+	
+	la t0, L2
+	flw fs7, 0(t0)      # Coloca o valor de L2 no fs7
+	
+	# Constantes uteis
+	
+	fsub.s fs8, fs0, fs1 # Delta Theta
+	
+	fadd.s ft0, fs4, fs4 # 2*m1
+	
+	fadd.s fs9, ft0, fs5 # 2*m1 + m2
+	
+	# Denominador comum para as duas aceleracoes = 2*mi + m2 - m2*cos(2*theta)
+	
+	fadd.s ft0, fs8, fs8 # 2*(Delta theta)
+	
+	fmv.s fa0, ft0
+	jal cosseno	    # cos(2*deltatheta) salvo em fa0
+	
+	fmul.s ft0, fs5, fa0 # m2*cos(2*theta)
+	
+	fsub.s fs10, fs9, ft0 # 2*m1 + m2 - m2*cos(2*theta)
+	
+	# Numerador aceleracao 1
+	
+	fmv.s fa0, fs0
+	jal seno # sen(theta1) salvo em fa0
+	
+	la t0, g
+	flw ft0, 0(t0) # Gravidade
+	
+	fmul.s ft1, fs9, fa0 # (2*m1 + m2)*sen(theta1)
+	
+	fmul.s ft1, ft1, ft0 # g*(2*m1 + m2)*sen(theta1)
+
+	fneg.s ft1, ft1 # - g*(2*m1 + m2)*sen(theta1) # PRIMEIRA PARTE DO NUMERADOR
+	fmv.s fs11, ft1
+	
+	
+	fadd.s ft10, fs1, fs1	# 2*theta2
+	fsub.s ft10, fs0, ft10  # theta1 - 2*theta2
+	
+	fmv.s fa0, ft10
+	jal seno		# sen(theta1 - 2*theta2) salvo em fa0
+	
+	la t0, g
+	flw ft0, 0(t0) # Gravidade
+	
+	fmul.s ft2, fs5, ft0 # m2*g
+	
+	fmul.s ft2, ft2, fa0	# m2*g*sen(theta1 - 2*theta2) # SEGUNDA PARTE DO NUMERADOR
+	
+	fsub.s fs11, fs11, ft2	# - g*(2*m1 + m2)*sen(theta1) -m2*g*sen(theta1 - 2*theta2) 
+	
+	fmv.s fa0, fs8
+	jal seno 
+	
+	addi sp, sp, -16	# Salvando o seno na stack
+	fsw  fa0, 0(sp)
+	
+	fmv.s fa0, fs8
+	jal cosseno	# Cosseno de delta theta salvo em fa0
+	
+	fmul.s ft0, fa0, fs6 # L1 * cos(delta theta)
+	fmul.s ft1, fs2, fs2 # Omega1^2
+	fmul.s ft0, ft0, ft1 # Omega1^2*L1 * cos(delta theta)
+	
+	fmul.s ft1, fs3, fs3 # Omega2^2
+	fmul.s ft2, ft1, fs7 # Omega2^2 * L2
+	
+	fadd.s ft0, ft0, ft2 # Omega2^2 * L2 + Omega1^2*L1 * cos(delta theta)
+	
+	flw ft11, 0(sp)	# Retirando o seno da stack e destruindo a pilha
+	addi sp, sp, 16
+	
+	fadd.s ft11, ft11, ft11 # 2*sen(delta theta)
+	fmul.s ft11, ft11, fs5 #  2*sen(delta theta)*m2
+	
+	fmul.s ft0, ft0, ft11 #  2*sen(delta theta)*m2*(Omega2^2 * L2 + Omega1^2*L1 * cos(delta theta)) # TERCEIRA PARTE DO NUMERADOR
+	
+	fsub.s fs11, fs11, ft0 # - g*(2*m1 + m2)*sen(theta1) -m2*g*sen(theta1 - 2*theta2) - 2*sen(delta theta)*m2*(Omega2^2 * L2 + Omega1^2*L1 * cos(delta theta))
+	
+	fmul.s ft0, fs10, fs6 # L1 * Denominador salvo em fs10
+	fdiv.s fs11, fs11, ft0 # Aceleracao 1
+	
+	# Numerador da aceleracao 2
+	
+	fadd.s fs9, fs4, fs5 # m1 + m2
+	
+	fmv.s fa0, fs8
+	jal seno
+	
+	addi sp, sp, -16
+	fsw fa0, 0(sp) # Salvando sen(delta theta) na stack 
+	
+	fmv.s fa0, fs0
+	jal cosseno 
+	
+	fsw fa0, 4(sp) # Salvando o cos(theta1) na stack
+	
+	fmv.s fa0, fs8
+	jal cosseno # cos(delta theta)
+	fmv.s ft1, fa0 # Salvando o cosseno em uma temporaria
+	
+	fmul.s ft0, fs2, fs2 # omega1^2
+	fmul.s ft0, ft0, fs9 # omega1^2(m1 + m2)
+	fmul.s ft0, ft0, fs6 # omega1^2*L1*(m1 + m2)
+	
+	flw ft11, 4(sp)
+	fmul.s ft2, ft11, fs9 # cos(theta1)*(m1 + m2)
+	
+	la t0, g
+	flw ft3, 0(t0)
+	
+	fmul.s ft2, ft2, ft3 # g*cos(theta1)*(m1 + m2)
+	
+	fmul.s ft4, fs3, fs3 # omega2^2
+	fmul.s ft4, ft4, fs7 # omega2^2*L2
+	fmul.s ft4, ft4, fs5 # omega2^2*L2*m2
+	fmul.s ft4, ft4, ft1 # omega2^2*L2*m2*cos(delta theta)
+	
+	fadd.s ft1, ft0, ft2 # (omega1^2*L1*(m1 + m2) + g*cos(theta1)*(m1 + m2)
+	fadd.s ft1, ft1, ft4 # (omega1^2*L1*(m1 + m2) + g*cos(theta1)*(m1 + m2) + omega2^2*L2*m2*cos(delta theta))
+	
+	flw ft2, 0(sp)
+	addi sp, sp, 16 # fechando a stack 
+	fadd.s ft2, ft2, ft2 # 2*sen(delta theta)
+	
+	fmul.s ft3, ft1, ft2 # NUMERADOR 2
+	
+	fmul.s ft1, fs7, fs10 # L2 * denominador
+	fdiv.s fs9, ft3, ft1 # Aceleracao 2
+	
+	fmv.s fa0, fs11 # fa0 recebe a aceleracao 1
+	fmv.s fa1, fs9 # fa1 recebe a aceleracao 2
+	
+	lw ra, 44(sp)       
+	flw fs0, 40(sp)     # Recuperando os valores na pilha
+	flw fs1, 36(sp)
+	flw fs2, 32(sp)
+	flw fs3, 28(sp)
+	flw fs4, 24(sp)
+	flw fs5, 20(sp)
+	flw fs6, 16(sp)
+	flw fs7, 12(sp)
+	
+	addi sp, sp, 48     # Destruindo a pilha
+	
+	ret
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	

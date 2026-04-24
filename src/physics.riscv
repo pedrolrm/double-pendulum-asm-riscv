@@ -1,8 +1,9 @@
 .data
-	# Constantes para o Rungee-Kuta
+	# Constantes para o Runge-Kuta
 	dois:   .float 2.0
 	seis:   .float 6.0
 	meio:   .float 0.5
+	dt: 	.float 0.016
 	g: 	.float 9.81
 
 
@@ -189,10 +190,207 @@ calcular_aceleracoes:
 	
 	ret
 	
+rk4: 
+	# Salvando na pilha
+	addi sp, sp, -96
+	sw ra, 92(sp)
+	fsw fs0, 88(sp)
+	fsw fs1, 84(sp)
+	fsw fs2, 80(sp)
+	fsw fs3, 76(sp)
+	
+	la t0, theta1
+	flw fs0, 0(t0)      # fs0 = theta1 original
+	
+	la t0, theta2
+	flw fs1, 0(t0)      # fs1 = theta2 original
+	
+	la t0, omega1
+	flw fs2, 0(t0)      # fs2 = omega1 original
+	
+	la t0, omega2
+	flw fs3, 0(t0)      # fs3 = omega2 original
 	
 	
+	fmv.s fa0, fs0
+	fmv.s fa1, fs1
+	fmv.s fa2, fs2
+	fmv.s fa3, fs3
 	
+	jal calcular_aceleracoes
 	
+	fsw fs2, 0(sp)
+	fsw fs3, 4(sp)
+	fsw fa0, 8(sp)
+	fsw fa1, 12(sp)
+	
+	la t0, dt
+	flw ft1, 0(t0)
+	
+	la t0, DOIS
+	flw ft2, 0(t0)
+	
+	fdiv.s ft1, ft1, ft2 # dt/2
+	
+	# Calculando k2
+	
+	flw ft0, 0(sp)		# k1 de theta1
+	fmul.s ft0, ft0, ft1	# k1 * (dt/2)
+	fadd.s fa0, fs0, ft0	# theta1 + k1*(dt/2) salvo em fa0
+	
+	flw ft0, 4(sp)		# k1 de theta2
+	fmul.s ft0, ft0, ft1
+	fadd.s fa1, fs1, ft0	# theta2 + k1*(dt/2) salvo em fa1
+	
+	flw ft0, 8(sp)		# k1 de omega1
+	fmul.s ft0, ft0, ft1
+	fadd.s fa2, fs2, ft0	# omega1 + k1*(dt/2) salvo em fa2
+	
+	flw ft0, 12(sp)		# k1 de omega2
+	fmul.s ft0, ft0, ft1
+	fadd.s fa3, fs3, ft0	# omega2 + k1*(dt/2) salvo em fa3
+	
+	jal calcular_aceleracoes
+	
+	fsw fa2, 16(sp)		# k2 de theta1 (omega1 hipotetico retornado)
+	fsw fa3, 20(sp)		# k2 de theta2 (omega2 hipotetico retornado)
+	fsw fa0, 24(sp)		# k2 de omega1 (aceleracao 1)
+	fsw fa1, 28(sp)		# k2 de omega2 (aceleracao 2)
+	
+	# Calculando k3
+	
+	flw ft0, 16(sp)		# k2 de theta1
+	fmul.s ft0, ft0, ft1	# k2 * (dt/2)
+	fadd.s fa0, fs0, ft0	# theta1 + k2*(dt/2) salvo em fa0
+	
+	flw ft0, 20(sp)		# k2 de theta2
+	fmul.s ft0, ft0, ft1
+	fadd.s fa1, fs1, ft0	# theta2 + k2*(dt/2) salvo em fa1
+	
+	flw ft0, 24(sp)		# k2 de omega1
+	fmul.s ft0, ft0, ft1
+	fadd.s fa2, fs2, ft0	# omega1 + k2*(dt/2) salvo em fa2
+	
+	flw ft0, 28(sp)		# k2 de omega2
+	fmul.s ft0, ft0, ft1
+	fadd.s fa3, fs3, ft0	# omega2 + k2*(dt/2) salvo em fa3
+	
+	jal calcular_aceleracoes
+	
+	fsw fa2, 32(sp)		# k3 de theta1
+	fsw fa3, 36(sp)		# k3 de theta2
+	fsw fa0, 40(sp)		# k3 de omega1
+	fsw fa1, 44(sp)		# k3 de omega2
+	
+	# Passo 4: Calculando k4
+	
+	la t0, dt
+	flw ft2, 0(t0)		# Recupera dt inteiro em ft2
+	
+	flw ft0, 32(sp)		# k3 de theta1
+	fmul.s ft0, ft0, ft2	# k3 * dt
+	fadd.s fa0, fs0, ft0	# theta1 + k3*dt salvo em fa0
+	
+	flw ft0, 36(sp)		# k3 de theta2
+	fmul.s ft0, ft0, ft2
+	fadd.s fa1, fs1, ft0	# theta2 + k3*dt salvo em fa1
+	
+	flw ft0, 40(sp)		# k3 de omega1
+	fmul.s ft0, ft0, ft2
+	fadd.s fa2, fs2, ft0	# omega1 + k3*dt salvo em fa2
+	
+	flw ft0, 44(sp)		# k3 de omega2
+	fmul.s ft0, ft0, ft2
+	fadd.s fa3, fs3, ft0	# omega2 + k3*dt salvo em fa3
+	
+	jal calcular_aceleracoes
+	
+	fsw fa2, 48(sp)		# k4 de theta1
+	fsw fa3, 52(sp)		# k4 de theta2
+	fsw fa0, 56(sp)		# k4 de omega1
+	fsw fa1, 60(sp)		# k4 de omega2
+	
+	# Soma final do Runge-Kutta
+	
+	la t0, dt
+	flw ft0, 0(t0)
+	la t0, seis
+	flw ft1, 0(t0)
+	fdiv.s ft5, ft0, ft1	# dt / 6.0 salvo em ft5
+	
+	# Atualizando theta1
+	flw ft0, 0(sp)		# k1
+	flw ft1, 16(sp)		# k2
+	fadd.s ft1, ft1, ft1	# 2*k2
+	flw ft2, 32(sp)		# k3
+	fadd.s ft2, ft2, ft2	# 2*k3
+	flw ft3, 48(sp)		# k4
+	
+	fadd.s ft4, ft0, ft1	# k1 + 2*k2
+	fadd.s ft4, ft4, ft2	# + 2*k3
+	fadd.s ft4, ft4, ft3	# + k4
+	fmul.s ft4, ft4, ft5	# Multiplica tudo por dt/6
+	fadd.s ft4, fs0, ft4	# Soma com theta1 original (fs0)
+	la t0, theta1
+	fsw ft4, 0(t0)		# Salva theta1 atualizado na RAM
+	
+	# Atualizando theta2
+	flw ft0, 4(sp)		# k1
+	flw ft1, 20(sp)		# k2
+	fadd.s ft1, ft1, ft1	# 2*k2
+	flw ft2, 36(sp)		# k3
+	fadd.s ft2, ft2, ft2	# 2*k3
+	flw ft3, 52(sp)		# k4
+	
+	fadd.s ft4, ft0, ft1
+	fadd.s ft4, ft4, ft2
+	fadd.s ft4, ft4, ft3
+	fmul.s ft4, ft4, ft5
+	fadd.s ft4, fs1, ft4	# Soma com theta2 original (fs1)
+	la t0, theta2
+	fsw ft4, 0(t0)		# Salva theta2 atualizado na RAM
+	
+	# Atualizando omega1
+	flw ft0, 8(sp)		# k1
+	flw ft1, 24(sp)		# k2
+	fadd.s ft1, ft1, ft1	# 2*k2
+	flw ft2, 40(sp)		# k3
+	fadd.s ft2, ft2, ft2	# 2*k3
+	flw ft3, 56(sp)		# k4
+	
+	fadd.s ft4, ft0, ft1
+	fadd.s ft4, ft4, ft2
+	fadd.s ft4, ft4, ft3
+	fmul.s ft4, ft4, ft5
+	fadd.s ft4, fs2, ft4	# Soma com omega1 original (fs2)
+	la t0, omega1
+	fsw ft4, 0(t0)		# Salva omega1 atualizado na RAM
+	
+	# Atualizando omega2
+	flw ft0, 12(sp)		# k1
+	flw ft1, 28(sp)		# k2
+	fadd.s ft1, ft1, ft1	# 2*k2
+	flw ft2, 44(sp)		# k3
+	fadd.s ft2, ft2, ft2	# 2*k3
+	flw ft3, 60(sp)		# k4
+	
+	fadd.s ft4, ft0, ft1
+	fadd.s ft4, ft4, ft2
+	fadd.s ft4, ft4, ft3
+	fmul.s ft4, ft4, ft5
+	fadd.s ft4, fs3, ft4	# Soma com omega2 original (fs3)
+	la t0, omega2
+	fsw ft4, 0(t0)		# Salva omega2 atualizado na RAM
+	
+	lw ra, 92(sp)
+	flw fs0, 88(sp)		# Recuperando os valores originais da pilha
+	flw fs1, 84(sp)
+	flw fs2, 80(sp)
+	flw fs3, 76(sp)
+	
+	addi sp, sp, 96		# Destruindo a pilha
+	
+	ret
 	
 	
 	

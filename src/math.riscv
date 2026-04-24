@@ -9,6 +9,11 @@
 	c7: .float 0.0001984	
 	c8: .float 0.0000248
 	
+	# Valores presente em PI e DOIS_PI sao valores que representao a constante matematica Pi e serao usados para a normalizacao dos angulos
+	PI: .float 3.1415926
+	NEG_PI: .float -3.1415926
+	DOIS_PI: .float 6.2831853
+	
 .text
 
 	seno: # Entrada = fa0, contem o angulo em Rad
@@ -78,4 +83,32 @@
 		fmv.s fa0, fa1
 		
 		ret
+	
+	normaliza:
+		# O registrador fa0 vai receber o angulo em rad
+		# Carregando valores nos registradores
+		la t0, PI
+		flw ft0, 0(t0) # ft0 -> pi
 		
+		la t0 , NEG_PI # ft1 -> -pi
+		flw ft1, 0(t0)
+		
+		la t0 , DOIS_PI # ft2 -> 2*pi
+		flw ft2, 0(t0)
+		
+		loop_reduz_positivo:
+			fle.s t1, fa0, ft0		# Verifica se o angulo eh <= que pi
+			bnez t1, loop_reduz_negativo	# Se for, pula para a parte negativa
+			
+			fsub.s fa0, fa0, ft2		# Se nao, subtrai 2*pi do angulo e retorna para a funcao 
+			j loop_reduz_positivo
+			
+		loop_reduz_negativo:
+			fge.s t1, fa0, ft1		# Verifica se o angulo eh >= que -pi
+			bnez t1, fim_normaliza		# Se for, termina a funcao
+			
+			fadd.s fa0, fa0, ft2		# Se nao, adiciona 2*pi e retorna para a funcao
+			j loop_reduz_negativo
+			
+		fim_normaliza:
+			ret

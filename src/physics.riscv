@@ -61,7 +61,7 @@ calcular_aceleracoes:
 	
 	fmul.s ft0, fs5, fa0 # m2*cos(2*theta)
 	
-	fsub.s fs10, fs9, ft0 # 2*m1 + m2 - m2*cos(2*theta)
+	fsub.s fs10, fs9, ft0 # 2*m1 + m2 - m2*cos(2*theta) # FIX-ME (DIVISÃO POR ZERO) 
 	
 	# Numerador aceleracao 1
 	

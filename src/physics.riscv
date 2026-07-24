@@ -5,7 +5,17 @@
 	meio:   .float 0.5
 	dt: 	.float 0.016
 	g: 	.float 9.81
+	eps: 	.float 0.000001
 
+	# Parâmetros e estado iniciais do pêndulo duplo
+	m1: 	.float 1.0
+	m2: 	.float 1.0
+	L1: 	.float 1.0
+	L2: 	.float 1.0
+	theta1: .float 0.8
+	theta2: .float -0.4
+	omega1: .float 0.0
+	omega2: .float 0.0
 
 .text
 
@@ -123,7 +133,19 @@ calcular_aceleracoes:
 	fsub.s fs11, fs11, ft0 # - g*(2*m1 + m2)*sen(theta1) -m2*g*sen(theta1 - 2*theta2) - 2*sen(delta theta)*m2*(Omega2^2 * L2 + Omega1^2*L1 * cos(delta theta))
 	
 	fmul.s ft0, fs10, fs6 # L1 * Denominador salvo em fs10
+
+	la t0, eps
+	flw ft1, 0(t0)
+	fabs.s ft2, ft0
+	flt.s t1, ft2, ft1
+	bnez t1, usar_epsilon_a1
 	fdiv.s fs11, fs11, ft0 # Aceleracao 1
+	j fim_div_a1
+
+	usar_epsilon_a1:
+		fdiv.s fs11, fs11, ft1
+
+	fim_div_a1:
 	
 	# Numerador da aceleracao 2
 	
@@ -171,7 +193,19 @@ calcular_aceleracoes:
 	fmul.s ft3, ft1, ft2 # NUMERADOR 2
 	
 	fmul.s ft1, fs7, fs10 # L2 * denominador
+
+	la t0, eps
+	flw ft2, 0(t0)
+	fabs.s ft5, ft1
+	flt.s t1, ft5, ft2
+	bnez t1, usar_epsilon_a2
 	fdiv.s fs9, ft3, ft1 # Aceleracao 2
+	j fim_div_a2
+
+	usar_epsilon_a2:
+		fdiv.s fs9, ft3, ft2
+
+	fim_div_a2:
 	
 	fmv.s fa0, fs11 # fa0 recebe a aceleracao 1
 	fmv.s fa1, fs9 # fa1 recebe a aceleracao 2
